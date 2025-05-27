@@ -1,0 +1,54 @@
+﻿# FastAPI
+fastapi>=0.95.0
+uvicorn>=0.21.1
+
+# Video Processing
+opencv-python>=4.8.0
+moviepy>=1.0.3
+ffmpeg-python>=0.2.0
+imageio[ffmpeg]>=2.31.0
+
+# Audio Processing & Transcription
+whisper-openai>=20230314
+librosa>=0.10.0
+soundfile>=0.12.0
+pydub>=0.25.0
+
+# Computer Vision (for frame analysis)
+torch>=2.0.0
+torchvision>=0.15.0
+ultralytics>=8.0.0
+transformers>=4.30.0
+
+# Face & Object Tracking
+mediapipe>=0.10.0
+face-recognition>=1.3.0
+
+# Scene Detection
+scenedetect>=0.6.0
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+pillow>=10.0.0
+
+# Temporal Analysis
+scipy>=1.11.0
+scikit-learn>=1.3.0
+
+# HTTP Client
+httpx>=0.24.0
+requests>=2.31.0
+
+# Environment
+python-dotenv>=1.0.0
+
+# Logging
+loguru>=0.7.0
+
+# Validation
+pydantic>=2.0.0
+
+# Utils
+psutil>=5.9.0
+tqdm>=4.65.0
