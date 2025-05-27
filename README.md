@@ -457,9 +457,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Contact
 
-**Deepak Raja** - [deepakraja007.dr@gmail.com](mailto:deepakraja007.dr@gmail.com)
+**Deepakraja Rajendran** - [deepakraja007.dr@gmail.com](mailto:deepakraja007.dr@gmail.com)
 
-Project Link: [https://github.com/yourusername/multimodal-content-analyzer](https://github.com/yourusername/multimodal-content-analyzer)
+<!-- Project Link: [https://github.com/yourusername/multimodal-content-analyzer](https://github.com/yourusername/multimodal-content-analyzer) -->
 
 ---
 
