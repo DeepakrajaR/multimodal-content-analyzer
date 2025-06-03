@@ -1,4 +1,4 @@
-﻿from celery import shared_task
+from celery import shared_task
 from django.utils import timezone
 from .models import AnalysisJob, AnalysisResult
 import logging
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 @shared_task
 def start_analysis_job(job_id):
-    \"\"\"Start an analysis job and process it through AI services\"\"\"
+    """Start an analysis job and process it through AI services"""
     try:
         job = AnalysisJob.objects.get(id=job_id)
         job.status = 'running'
@@ -66,7 +66,7 @@ def start_analysis_job(job_id):
             pass
 
 def process_analysis_type(job, analysis_type):
-    \"\"\"Process a specific analysis type\"\"\"
+    """Process a specific analysis type"""
     
     # Determine which AI service to use
     service_url = None
@@ -123,7 +123,7 @@ def process_analysis_type(job, analysis_type):
 
 @shared_task
 def cleanup_old_jobs():
-    \"\"\"Clean up old completed/failed jobs\"\"\"
+    """Clean up old completed/failed jobs"""
     from datetime import timedelta
     
     # Delete jobs older than 30 days
