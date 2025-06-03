@@ -68,7 +68,7 @@ services:
   # Text Analyzer Service
   text-analyzer:
     build:
-      context: ./services/text-analyzer
+      context: ./ai-services/text-analyzer
       dockerfile: Dockerfile
     container_name: multimodal-text-analyzer
     ports:
@@ -119,7 +119,7 @@ services:
   # Fusion Service
   fusion-service:
     build:
-      context: ./services/fusion-service
+      context: ./ai-services/multimodal-fusion
       dockerfile: Dockerfile
     container_name: multimodal-fusion-service
     ports:
