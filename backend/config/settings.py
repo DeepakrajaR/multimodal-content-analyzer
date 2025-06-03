@@ -214,3 +214,6 @@ LOGGING = {
         },
     },
 }
+
+# Custom User Model Configuration
+AUTH_USER_MODEL = 'users.User'

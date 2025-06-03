@@ -51,6 +51,16 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/multimodal_db
       - REDIS_URL=redis://redis:6379
       - MONGODB_URL=mongodb://admin:admin123@mongodb:27017/
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=multimodal_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres123
+      - POSTGRES_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=27017
+      - MONGODB_DB=multimodal_results
       - TEXT_ANALYZER_URL=http://text-analyzer:8001
       - IMAGE_ANALYZER_URL=http://image-analyzer:8002
       - VIDEO_ANALYZER_URL=http://video-analyzer:8003
