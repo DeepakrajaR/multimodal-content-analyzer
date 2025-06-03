@@ -149,7 +149,7 @@ class MultimodalAnalysisDetailView(generics.RetrieveUpdateDestroyAPIView):
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def quick_analyze_view(request):
-    \"\"\"Quick analysis endpoint for simple text/image analysis\"\"\"
+    """Quick analysis endpoint for simple text/image analysis"""
     analysis_type = request.data.get('analysis_type')
     content = request.data.get('content')  # text content or base64 image
     content_type = request.data.get('content_type', 'text')  # text or image
