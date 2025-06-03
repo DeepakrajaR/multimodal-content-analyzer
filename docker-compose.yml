@@ -1,1097 +1,164 @@
 ﻿version: '3.8'
 
 services:
-  # Database Services
-  db:
-    image: postgres:15
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+  # PostgreSQL Database
+  postgres:
+    image: postgres:13
+    container_name: multimodal-postgres
     environment:
-      - POSTGRES_DB=multimodal_analyzer
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      POSTGRES_DB: multimodal_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
     ports:
       - "5432:5432"
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  mongodb:
-    image: mongo:6
     volumes:
-      - mongodb_data:/data/db
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=mongo
-      - MONGO_INITDB_ROOT_PASSWORD=mongo123
-    ports:
-      - "27017:27017"
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - multimodal-network
 
+  # Redis for caching
   redis:
-    image: redis:7-alpine
+    image: redis:alpine
+    container_name: multimodal-redis
     ports:
       - "6379:6379"
     networks:
       - multimodal-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
 
-  # Backend Services
+  # MongoDB for document storage
+  mongodb:
+    image: mongo:latest
+    container_name: multimodal-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - multimodal-network
+
+  # Main Backend API
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    container_name: multimodal-backend
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend:/app
-      - media_files:/app/media
     environment:
-      - DEBUG=True
-      - SECRET_KEY=multimodal-secret-key-change-in-production
-      - POSTGRES_DB=multimodal_analyzer
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
-      - MONGODB_DB=multimodal_results
-      - MONGODB_HOST=mongodb
-      - MONGODB_PORT=27017
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/multimodal_db
+      - REDIS_URL=redis://redis:6379
+      - MONGODB_URL=mongodb://admin:admin123@mongodb:27017/
       - TEXT_ANALYZER_URL=http://text-analyzer:8001
       - IMAGE_ANALYZER_URL=http://image-analyzer:8002
       - VIDEO_ANALYZER_URL=http://video-analyzer:8003
-      - MULTIMODAL_FUSION_URL=http://multimodal-fusion:8004
+      - FUSION_SERVICE_URL=http://fusion-service:8004
     depends_on:
-      - db
+      - postgres
       - redis
       - mongodb
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/schema/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
     volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
+      - ./uploads:/app/uploads
+      - ./models:/app/models
     networks:
       - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-  video-analyzer:
-    build:
-      context: ./ai-services/video-analyzer
-      dockerfile: Dockerfile
-    ports:
-      - "8003:8003"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8003
-    volumes:
-      - video_models:
-  fusion_models:
-  fusion_models:/app/models
-      - temp_files:
-  video_models:
-  fusion_models:
-  fusion_models:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
-      interval: 30s
-      timeout: 60s
-      retries: 3
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-    # Uncomment if you have GPU support
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
 
-  celery-worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    command: celery -A config worker -l info --concurrency=2
-    volumes:
-      - ./backend:/app
-      - media_files:/app/media
-    environment:
-      - DEBUG=True
-      - SECRET_KEY=multimodal-secret-key-change-in-production
-      - POSTGRES_DB=multimodal_analyzer
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
-      - MONGODB_DB=multimodal_results
-      - MONGODB_HOST=mongodb
-      - MONGODB_PORT=27017
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - TEXT_ANALYZER_URL=http://text-analyzer:8001
-      - IMAGE_ANALYZER_URL=http://image-analyzer:8002
-      - VIDEO_ANALYZER_URL=http://video-analyzer:8003
-      - MULTIMODAL_FUSION_URL=http://multimodal-fusion:8004
-    depends_on:
-      - db
-      - redis
-      - mongodb
-      - backend
-    networks:
-      - multimodal-network
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-  video-analyzer:
-    build:
-      context: ./ai-services/video-analyzer
-      dockerfile: Dockerfile
-    ports:
-      - "8003:8003"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8003
-    volumes:
-      - video_models:
-  fusion_models:
-  fusion_models:/app/models
-      - temp_files:
-  video_models:
-  fusion_models:
-  fusion_models:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
-      interval: 30s
-      timeout: 60s
-      retries: 3
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-    # Uncomment if you have GPU support
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
-
-  celery-beat:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
-    volumes:
-      - ./backend:/app
-    environment:
-      - DEBUG=True
-      - SECRET_KEY=multimodal-secret-key-change-in-production
-      - POSTGRES_DB=multimodal_analyzer
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    depends_on:
-      - db
-      - redis
-      - backend
-    networks:
-      - multimodal-network
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-  video-analyzer:
-    build:
-      context: ./ai-services/video-analyzer
-      dockerfile: Dockerfile
-    ports:
-      - "8003:8003"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8003
-    volumes:
-      - video_models:
-  fusion_models:
-  fusion_models:/app/models
-      - temp_files:
-  video_models:
-  fusion_models:
-  fusion_models:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
-      interval: 30s
-      timeout: 60s
-      retries: 3
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-    # Uncomment if you have GPU support
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
-
-  # AI Services
+  # Text Analyzer Service
   text-analyzer:
     build:
-      context: ./ai-services/text-analyzer
+      context: ./services/text-analyzer
       dockerfile: Dockerfile
+    container_name: multimodal-text-analyzer
     ports:
       - "8001:8001"
     environment:
-      - ENVIRONMENT=production
-      - PORT=8001
+      - SERVICE_PORT=8001
+      - MODEL_PATH=/app/models
     volumes:
-      - text_models:
-  image_models:
-  temp_files:
-  video_models:
-  fusion_models:
-  fusion_models:/app/models
+      - ./models/text:/app/models
+      - ./temp:/app/temp
     networks:
       - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-  multimodal-fusion:
+
+  # Image Analyzer Service
+  image-analyzer:
     build:
-      context: ./ai-services/multimodal-fusion
+      context: ./services/image-analyzer
       dockerfile: Dockerfile
+    container_name: multimodal-image-analyzer
     ports:
-      - "8004:8004"
+      - "8002:8002"
     environment:
-      - ENVIRONMENT=production
-      - PORT=8004
+      - SERVICE_PORT=8002
+      - MODEL_PATH=/app/models
     volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
+      - ./models/image:/app/models
+      - ./temp:/app/temp
     networks:
       - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
+
+  # Video Analyzer Service
   video-analyzer:
     build:
-      context: ./ai-services/video-analyzer
+      context: ./services/video-analyzer
       dockerfile: Dockerfile
+    container_name: multimodal-video-analyzer
     ports:
       - "8003:8003"
     environment:
-      - ENVIRONMENT=production
-      - PORT=8003
+      - SERVICE_PORT=8003
+      - MODEL_PATH=/app/models
     volumes:
-      - video_models:
-  fusion_models:
-  fusion_models:/app/models
-      - temp_files:
-  video_models:
-  fusion_models:
-  fusion_models:/app/temp
+      - ./models/video:/app/models
+      - ./temp:/app/temp
     networks:
       - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
-      interval: 30s
-      timeout: 60s
-      retries: 3
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-    # Uncomment if you have GPU support
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
-    # Uncomment if you have GPU support
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
 
-  # Load Balancer (Optional - for production)
-  nginx:
-    image: nginx:alpine
+  # Fusion Service
+  fusion-service:
+    build:
+      context: ./services/fusion-service
+      dockerfile: Dockerfile
+    container_name: multimodal-fusion-service
     ports:
-      - "80:80"
-      - "443:443"
+      - "8004:8004"
+    environment:
+      - SERVICE_PORT=8004
+      - MODEL_PATH=/app/models
+      - TEXT_ANALYZER_URL=http://text-analyzer:8001
+      - IMAGE_ANALYZER_URL=http://image-analyzer:8002
+      - VIDEO_ANALYZER_URL=http://video-analyzer:8003
+    depends_on:
+      - text-analyzer
+      - image-analyzer
+      - video-analyzer
     volumes:
-      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+      - ./models/fusion:/app/models
+      - ./temp:/app/temp
+    networks:
+      - multimodal-network
+
+  # Frontend (optional)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: multimodal-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
     depends_on:
       - backend
     networks:
       - multimodal-network
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-  video-analyzer:
-    build:
-      context: ./ai-services/video-analyzer
-      dockerfile: Dockerfile
-    ports:
-      - "8003:8003"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8003
-    volumes:
-      - video_models:
-  fusion_models:
-  fusion_models:/app/models
-      - temp_files:
-  video_models:
-  fusion_models:
-  fusion_models:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
-      interval: 30s
-      timeout: 60s
-      retries: 3
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-  multimodal-fusion:
-    build:
-      context: ./ai-services/multimodal-fusion
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8004
-    volumes:
-      - fusion_models:/app/models
-      - temp_files:/app/temp
-    networks:
-      - multimodal-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-    depends_on:
-      - text-analyzer
-      - image-analyzer
-      - video-analyzer
-    # Uncomment if you have GPU support
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
-
-networks:
-  multimodal-network:
-    driver: bridge
 
 volumes:
   postgres_data:
   mongodb_data:
-  media_files:
-  text_models:
-  image_models:
-  temp_files:
-  video_models:
-  fusion_models:
-  fusion_models:
 
-
-
-
+networks:
+  multimodal-network:
+    driver: bridge
